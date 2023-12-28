@@ -1,0 +1,1 @@
+tcc main.c -o build/out -lcjson

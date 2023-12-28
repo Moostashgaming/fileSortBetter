@@ -1,0 +1,28 @@
+{
+    "searchDir" : [],
+    "searchSubDirs" : "false",
+    "skipSubDirs" : [],
+    "sortFileTypes" : 
+    [
+        [
+            "filetype", "directory"
+        ],
+
+        [
+            "filetype", "directory"
+        ]
+    ],
+    "sortTerms" : 
+    [
+        [
+            "searchTerm", "directory"
+        ],
+
+        [
+            "searchTerm", "directory"
+        ]
+    ],
+    "sortDirs" : "true",
+    "sortByFiletype" : "true",
+    "sortByKeywords" : "true"
+}
