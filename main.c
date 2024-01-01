@@ -17,12 +17,12 @@ typedef unsigned char uint8_t;
 /// NOTE: Define all JSON objects expected (in the configuration file) in their respective groups here.
 ///       Make sure to line them up in order with conf_Settings_t. MAKE SURE TO.
 ///       If a new type needs to be implemented, update conf_LoadSettingsFromJSON(cJSON *parsed) and struct conf_Settings
-#define JSON_ROOTOBJECTS_BOOL   "searchSubDirs sortDirs sortByFiletype sortByKeywords"
-#define JSON_ROOTOBJECTS_ARRAYS "sortFiletypes sortTerms"
+char JSON_ROOTOBJECTS_BOOL[]   = "searchSubDirectories sortDirectories sortByFileTypes sortByKeywords";
+char JSON_ROOTOBJECTS_ARRAYS[] = "sortFileTypes sortTerms";
 
 // Really hacky, should work just fine, but just in case. (gcc attrib)
-__attribute__((__packed__))
 union conf_Settings_t {
+    __attribute__((__packed__))
     struct  {
         uint8_t searchSubDirs : 1;
         uint8_t sortDirs : 1;
@@ -42,13 +42,15 @@ struct cJSON *conf_Parsed;
 char** dir_SearchEntries;
 unsigned short dir_SearchEntries_c;
 
-/// Sets internal variables based off the contents of the supplied JSON object.
-/// Returns NULL if succeeded, an error message otherwise.
+/**
+ * Sets internal variables based off the contents of the supplied JSON object.
+ * @param parsed: The parsed JSON string from the configuration.
+ * @return NULL if the operation has succeeded, otherwise an error message (which will need to be freed).
+*/
 char* conf_LoadSettingsFromJSON(cJSON *parsed) {
     // Check if the supplied object contains data.
     if (parsed == NULL)
         return "\aSupplied JSON object is NULL. (Internal error, conf_LoadSettingsFromJSON)";
-
     cJSON *j_tmp;
     char *j_objn;
     unsigned char i = 0;
@@ -58,7 +60,6 @@ char* conf_LoadSettingsFromJSON(cJSON *parsed) {
 #define FEEDBACK_JSON_OBJERROR_SUFFIX_BOOL " is supposed to be boolean, but it is not."
 
     // Parse BOOL-type objects from the JSON and set them in the conf_Settings union
-
     // Make the first split/strtok call
     j_objn = strtok(JSON_ROOTOBJECTS_BOOL, " ");
     // Begin the iteration loop
@@ -69,9 +70,13 @@ char* conf_LoadSettingsFromJSON(cJSON *parsed) {
     // Get the object from the parsed JSON from one of the names defined in JSON_ROOTOBJECTS_BOOL
     j_tmp = cJSON_GetObjectItem(parsed, j_objn);
     // Error-check the type of the value
-    if (!cJSON_IsBool(j_tmp))
-        return strcat(j_objn, FEEDBACK_JSON_OBJERROR_SUFFIX_BOOL);
-    // Store the status of the value
+    if (!cJSON_IsBool(j_tmp)) {
+        // char* err = malloc(sizeof(j_objn) + sizeof(FEEDBACK_JSON_OBJERROR_SUFFIX_BOOL));
+        printf("%d %d", sizeof(j_objn), sizeof(FEEDBACK_JSON_OBJERROR_SUFFIX_BOOL));
+        // memcpy(err, j_objn, sizeof(j_objn));
+        // return strcat(j_objn, FEEDBACK_JSON_OBJERROR_SUFFIX_BOOL);
+    }
+    // Store the true/false status of the value
     conf_Settings.indx[i++] = cJSON_IsTrue(j_tmp);
     // Make another split/strtok call (this time NULL to continue) and loop
     j_objn = strtok(NULL, " ");
@@ -85,8 +90,11 @@ char* conf_LoadSettingsFromJSON(cJSON *parsed) {
     return NULL;
 }
 
-/// Reads the entire configuration file and returns a pointer to the resulting string.
-/// If an error has occured, the first character will not be '{'.
+/**
+ * Reads the configuration file pointed to by configuration_file.
+ * @param configuration_file: The path to the configuration file.
+ * @return A pointer to the resulting string. If an error has occured, the first character of the return string will not be a '{', and it will instead contain the corresponding error message.
+*/
 char *conf_FileReadString(char* configuration_file) {
 #define FEEDBACK_CONFIGFILE_OPENERR "\aCould not open the configuration file.\nCheck the location of your configuration file, and if you have permissions to it."
 #define FEEDBACK_CONFIGFILE_EMPTY "\aThe configuration file was empty."
@@ -126,7 +134,7 @@ char *conf_FileReadString(char* configuration_file) {
  * Gets all entries in searchDir 
  * @param searchDir: The directory to search in
  * @param skip: Any files or directories to skip over when searching 
- * @return: A string with all files and directories found in the current directory
+ * @return A string with all files and directories found in the current directory, or a bell-character prefixed error message.
 */
 char* dir_GetEntries(char *searchDir, char* skip) {
     DIR *pSearchDir;
@@ -134,10 +142,8 @@ char* dir_GetEntries(char *searchDir, char* skip) {
     struct stat statBuf;    
 
     // Checks if the directory actually opened and outputs a message and exits the function if it didn't
-    if ((pSearchDir = opendir(searchDir)) == NULL) {
-        puts("Failed to open directory");
-        return;
-    }
+    if ((pSearchDir = opendir(searchDir)) == NULL)
+        return "\aFailed to open the search directory.";
 
     // Changes the current directory to the one to be searched
     chdir(searchDir);
@@ -151,12 +157,13 @@ char* dir_GetEntries(char *searchDir, char* skip) {
         
         // Checks if file pointed to by statBuf is a directory
         if(S_ISDIR(statBuf.st_mode)) {
+
             // Checks if the directory entry is the current directory or the parent of the current directory
             if (strcmp(".", dirEntry->d_name) == 0 || strcmp("..", dirEntry->d_name) == 0)
-            continue;
+                continue;
         }
         
-        dir_SearchEntries = realloc(dir_SearchEntries, s_mem += ((strlen(dirEntry->d_name) + 1) * sizeof(char)));
+        dir_SearchEntries = realloc(dir_SearchEntries, s_mem += (strlen(dirEntry->d_name) * sizeof(char)));
         dir_SearchEntries[s_iter++] = dirEntry->d_name;
         // printf("%*s%s/\n", 5, "", strstr(dirEntry->d_name, skip));
     }
@@ -170,20 +177,22 @@ char* dir_GetEntries(char *searchDir, char* skip) {
     return NULL;
 }
 
-
 int main() {
 #define FEEDBACK_PREAMBLE "+\nOpening Config... "
 #define FEEDBACK_SUCCESS "success!"
 #define FEEDBACK_FAILURE "failed!\n"
+
 /// Path to the configuration file (relative to execution location).
 #define CONFIG_PATH "config/config.json"
+
     fputs(FEEDBACK_PREAMBLE, stdout);
     
     char* stat = conf_FileReadString(CONFIG_PATH);
     // If reading failed, o[0] != '{'
     if (stat[0] != '{') {
         // Print the error and exit
-        puts(strcat(FEEDBACK_FAILURE, stat));
+        fputs(FEEDBACK_FAILURE, stdout);
+        puts(stat);
         return 1;
     } 
     puts(FEEDBACK_SUCCESS);
@@ -192,7 +201,9 @@ int main() {
     stat = conf_LoadSettingsFromJSON(conf_Parsed);
     // If loading failed, o != NULL
     if (stat != NULL) {
-        puts(strcat(FEEDBACK_FAILURE, stat));
+        fputs(FEEDBACK_FAILURE, stdout);
+        puts(stat);
+        free(stat);
         return 1;
     }
 
@@ -202,15 +213,17 @@ int main() {
     }
 
     stat = dir_GetEntries(".", "out");
-    // If searching failed, o != NULL
+    // // If searching failed, o != NULL
     if (stat != NULL) {
-        puts(strcat(FEEDBACK_FAILURE, stat));
+        puts(FEEDBACK_FAILURE);
+        puts(stat);
         return 1;
     }  
     
-    // DEBUG: Print the search entries.
+    // // DEBUG: Print the search entries.
     for (int z = 0; z < dir_SearchEntries_c; z++) {
-        printf("searche %s\n", dir_SearchEntries[z]);
+        fputs("searche", stdout);
+        puts(dir_SearchEntries[z]);
     }
 
     // Check the filetype of those files and sort according to that

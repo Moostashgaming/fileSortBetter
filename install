@@ -1,0 +1,2 @@
+sudo cp build/out /usr/bin/filesort
+ls /usr/bin/filesort

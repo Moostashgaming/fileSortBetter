@@ -1,28 +1,33 @@
 {
-    "searchDir" : [],
-    "searchSubDirs" : false,
-    "skipSubDirs" : [],
+    "searchDirectories" : [
+
+    ],
+    "skipDirectoriesAndFiles" : [
+        "file",
+        "directory/"
+    ],
     "sortFileTypes" : 
     [
         [
-            "filetype", "directory"
+            "fileType", "directorySortTo"
         ],
 
         [
-            "filetype", "directory"
+            "fileType", "directorySortTo"
         ]
     ],
-    "sortTerms" : 
+    "sortGenericTerms" : 
     [
         [
-            "searchTerm", "directory"
+            "term", "directorySortTo"
         ],
 
         [
-            "searchTerm", "directory"
+            "term", "directorySortTo"
         ]
     ],
-    "sortDirs" : true,
-    "sortByFiletype" : true,
+    "sortDirectories" : true,
+    "searchSubDirectories" : false,
+    "sortByFileType" : true,
     "sortByKeywords" : true
 }
