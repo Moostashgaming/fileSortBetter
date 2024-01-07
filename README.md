@@ -1,6 +1,6 @@
 # FileSort
 
-A utility configured in JSON and used to sort loose files from one directory of the user's choice into another directory of the user's choice.
+A utility configured in JSON and used to sort loose files or directories from one directory of the user's choice into another directory of the user's choice.
 
 ### Cloning & Building
 ```bash
@@ -26,35 +26,50 @@ The default configuration is located at ./config/config.json.
 {
     /* Place directories you wish to sort in here (Exact path) */
     "searchDirectories" : [
-
+        "directory/"
     ],
+
+    /* Place files and directories that you would like the program to leave alone and not sort here */
     "skipDirectoriesAndFiles" : [
         "file",
         "directory/"
     ],
+
+    /* Place the filetype extension and which directory you would like those file types sorted to in here */
     "sortFileTypes" : 
     [
+        /* You may add as many of these as you would like as long as they adhere to the convention displayed below */
         [
-            "fileType", "directorySortTo"
+            "fileType", "directorySortTo/"
         ],
 
         [
-            "fileType", "directorySortTo"
+            "fileType", "directorySortTo/"
         ]
     ],
+
+    /* Place generic terms for the program to sort by and the directory to send files/directories whose names contain those terms to (Fuzzy finding not currently supported) */
     "sortGenericTerms" : 
     [
+        /* You may add as many of  these as you like, as long as they adhere to the convention displayed below */
         [
-            "term", "directorySortTo"
+            "term", "directorySortTo/"
         ],
 
         [
-            "term", "directorySortTo"
+            "term", "directorySortTo/"
         ]
     ],
+
+    /* Whether or not to sort any directories found in the search directory */
     "sortDirectories" : true,
+    /* Whether or not to sort any files found in the search directory */
+    "sortFiles" : true,
+    /* Whether or not to search through sub directories in the search directory */
     "searchSubDirectories" : false,
+    /* Whether or not to sort by the instructions laid out in "sortFileTypes" */
     "sortByFileType" : true,
+    /* Whether or not to sort by the instructions laid out in "sortGenericTerms" */
     "sortByKeywords" : true
 }
 ```
