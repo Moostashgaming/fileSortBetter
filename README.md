@@ -2,7 +2,7 @@
 
 A utility configured in JSON and used to sort loose files or directories from one directory of the user's choice into another directory of the user's choice.
 
-### Cloning & Building
+### Cloning & Building (and installing)
 ```bash
 # Using a git client:
 git clone https://github.com/moostashylxd/FileSort.git
@@ -26,9 +26,9 @@ The default configuration is located at ./config/config.json.
 {
     /* Place directories you wish to sort in here (Exact path) */
     "searchDirectories" : [
-        "directory/"
+        "/directory/"
     ],
-
+    
     /* Place files and directories that you would like the program to leave alone and not sort here */
     "skipDirectoriesAndFiles" : [
         "file",
@@ -63,12 +63,16 @@ The default configuration is located at ./config/config.json.
 
     /* Whether or not to sort any directories found in the search directory */
     "sortDirectories" : true,
+    
     /* Whether or not to sort any files found in the search directory */
     "sortFiles" : true,
+
     /* Whether or not to search through sub directories in the search directory */
     "searchSubDirectories" : false,
+
     /* Whether or not to sort by the instructions laid out in "sortFileTypes" */
-    "sortByFileType" : true,
+    "sortByFileTypes" : true,
+
     /* Whether or not to sort by the instructions laid out in "sortGenericTerms" */
     "sortByKeywords" : true
 }

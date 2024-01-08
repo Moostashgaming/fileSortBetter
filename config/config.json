@@ -1,12 +1,11 @@
 {
-    "searchDirectories" : [
-        "/directory/"
+    "searchDirectories": [
+        "directory"
     ],
-    "skipDirectoriesAndFiles" : [
-        "file",
-        "directory/"
+    "skipDirectoriesAndFiles": [
+        "cjson"
     ],
-    "sortFileTypes" : 
+    "sortFileTypes": 
     [
         [
             "fileType", "directorySortTo"
@@ -16,7 +15,7 @@
             "fileType", "directorySortTo"
         ]
     ],
-    "sortGenericTerms" : 
+    "sortGenericTerms": 
     [
         [
             "term", "directorySortTo"
@@ -26,8 +25,9 @@
             "term", "directorySortTo"
         ]
     ],
-    "sortDirectories" : true,
-    "searchSubDirectories" : false,
-    "sortByFileType" : true,
-    "sortByKeywords" : true
+    "sortDirectories": true,
+    "sortFiles": true,
+    "searchSubDirectories": true,
+    "sortByFileTypes": true,
+    "sortByKeywords": true
 }
