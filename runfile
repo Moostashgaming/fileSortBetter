@@ -1,2 +1,0 @@
-gcc main.c -o build/out -lcjson -O3
-strip --strip-all build/out
