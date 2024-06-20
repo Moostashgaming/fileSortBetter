@@ -11,44 +11,59 @@
 #include <sys/sendfile.h>
 
 // TODO: Files and directories with "$" in their names will break the program
+// FIXME: Probably littered with allocation errors, I suck at C
 // Fix is literally to change SEPARATOR to something that can't be in directory or file name, I'm just too lazy to implement it
 
 #define SEPERATOR "$"
+#define DEPTH_LIMIT 3
 
 /**
 * Reads through directory entries and passes them to moveSort to be sorted
 * @param sortDir: The directory to sort
 * @param skip: The directories or files to skip
-* @return The current entry to be sorted, or a bell character prefixed error message
+* @return The current entry to be sorted, NULL if no more entries, or a bell character prefixed error message
 */
 char * readEntries(char * sortDir, char * skip) {
-  DIR * pSortDir;
+  DIR * pCurDir;
   struct dirent * dirEntry;
   struct stat statBuf;
 
-  // Checks if the directory actually opened and outputs a message and exits the function if it didn't
-  if ((pSortDir = opendir(sortDir)) == NULL)
+  // Check if the directory actually opened and output a message if it didn't
+  if ((pCurDir = opendir(sortDir)) == NULL)
     return "\aFailed to open the search directory.";
 
   chdir(sortDir);
+  char * prevDir = sortDir;
   char * tok;
+  unsigned short depth = 0;
   
   // Loop through each token in skip and compare them to the dirEntry, if they match, then skip returning that dirEntry
   while (1) {   
     // If no more entries return that
-    if ((dirEntry = readdir(pSortDir)) == NULL)
+    if ((dirEntry = readdir(pCurDir)) == NULL)
       return NULL;    
     
     tok = strtok(skip, SEPERATOR);
-    
+
+    // Continue if this entry matches anything in skip
     if (strcmp(tok, dirEntry->d_name) == 0)
       continue;
     // Stat entry to see if it's a directory
     lstat(dirEntry->d_name, &statBuf);
   
     if (S_ISDIR(statBuf.st_mode)) {
-      
+      if (depth <= DEPTH_LIMIT)
+        goto lDepthLimitReached;
+      closedir(pCurDir);
+      if ((pCurDir = opendir(dirEntry->d_name)) == NULL)
+        return "\aFailed to open nested directory";
+      depth++;
+      chdir(strcat(prevDir, dirEntry->d_name));
+      prevDir = dirEntry->d_name;
+      continue;
     }
+    lDepthLimitReached:
+    closedir(pCurDir);
     return dirEntry->d_name;
   }
 }
