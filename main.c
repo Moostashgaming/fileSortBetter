@@ -18,7 +18,7 @@
 #define DEPTH_LIMIT 3
 
 /**
-* Reads through directory entries and passes them to moveSort to be sorted
+* Reads through directory entries and passes the first one not skipped or entered (A directory) to moveSort to be sorted
 * @param sortDir: The directory to sort
 * @param skip: The directories or files to skip
 * @return The current entry to be sorted, NULL if no more entries, or a bell character prefixed error message
@@ -42,7 +42,8 @@ char * readEntries(char * sortDir, char * skip) {
     // If no more entries return that
     if ((dirEntry = readdir(pCurDir)) == NULL)
       return NULL;    
-    
+
+    //  FIXME: Probably not how strtok works
     tok = strtok(skip, SEPERATOR);
 
     // Continue if this entry matches anything in skip
@@ -52,42 +53,42 @@ char * readEntries(char * sortDir, char * skip) {
     lstat(dirEntry->d_name, &statBuf);
   
     if (S_ISDIR(statBuf.st_mode)) {
-      if (depth <= DEPTH_LIMIT)
-        goto lDepthLimitReached;
+      if (depth <= DEPTH_LIMIT) 
+        goto lEnd;
       closedir(pCurDir);
-      if ((pCurDir = opendir(dirEntry->d_name)) == NULL)
+      if ((pCurDir = opendir(dirEntry->d_name)) == NULL) {
+        closedir(pCurDir);
         return "\aFailed to open nested directory";
+      }
       depth++;
       chdir(strcat(prevDir, dirEntry->d_name));
       prevDir = dirEntry->d_name;
       continue;
     }
-    lDepthLimitReached:
+    lEnd:
     closedir(pCurDir);
     return dirEntry->d_name;
   }
 }
 
+/** 
+* Checks if the input from the user is valid and useable and puts messages in the terminal if not
+* @param input: The input from the user
+* @return Zero if input is valid, 1 if not
+*/
+// TODO: Finish this
+int checkInput(char * input) {
+  
+}
+
 int main () {
   // The directory to sort
-  char * pSortDir;
+  char * pSortDir = malloc(sizeof(char));
   // Whether or not to sort through subdirectories
   char sortSubDirsRes;
-  // The directories and/or files to be skipped by the program
-  char * pSkip;
   // Whether or not to use the config
   char useConfigRes;
   
-  // The list of filetype extensions to sort in the same order as the directories they're to be sorted into
-  char * pSortExtensions;
-  // The list of directories into which the specified filetypes will go
-  char * pExtensionSortDirs;
-
-  // List of filename keywords to sort in the same order as the directories they're to go to
-  char * pSortKeywords;
-  // The list of directories into which the specified keywords will go
-  char * pKeywordsSortDirs;
-
   struct stat * buffer;
   size_t bufSize = sizeof(char);
     
@@ -97,6 +98,10 @@ int main () {
   // Whether or not to sort through subdirs
   puts("\nSort through subdirectories? (Depth Limit 3) [y/n]");
   sortSubDirsRes = fgetc(stdin);
+
+  bufSize = sizeof(char);
+  // The directories and/or files to be skipped by the program
+  char * pSkip = malloc(sizeof(bufSize));
   
   // Which files and dirs to skip
   puts("\nPlease enter the names of the files/directories you would like the program to skip over in the form \"/skipDirectory/\" and \"skipFile\" separated by a \""SEPERATOR"\" (/skipDirectory/"SEPERATOR"skipFile)");
@@ -123,22 +128,39 @@ int main () {
     // Exit program if open config fails somehow
     if ((pConfig = fopen("config", "w")) == NULL) {
       puts("\n\aWe're cooked, failed to open config.\nGet your shit together and then come back to me!\nExiting...");
-      return 1;
+      return 0;
     }
+
+    bufSize = sizeof(char);
+    // The list of filetype extensions to sort in the same order as the directories they're to be sorted into
+    char * pSortExtensions = malloc(sizeof(bufSize));
+    
     // Getting filetype extensions to sort by and placing them into the config
     puts("\nPlease enter in the filetype extensions you would like to sort in the form \".extension\" followed by a \""SEPERATOR"\" (.extension"SEPERATOR"):");
     getline(&pSortExtensions, &bufSize, stdin);
     fprintf(pConfig, "char* pSortExtensions = \"'%s'\"", pSortExtensions);
 
+    bufSize = sizeof(char);
+    // The list of directories into which the specified filetypes will go
+    char * pExtensionSortDirs = malloc(sizeof(char));
+    
     // Getting the directories into which to sort the aformentioned filetypes and placing them into the config
     puts("\nPlease enter the directories you would like these file types to be sorted to in the same order you entered the extensions and in the form \"/directory/\" (Please use the full path) followed by a \""SEPERATOR"\". (/directory/"SEPERATOR"):");
     getline(&pExtensionSortDirs, &bufSize, stdin);
     fprintf(pConfig, "\nchar* pExtensionSortDirs = \"'%s'\"", pExtensionSortDirs);
 
+    bufSize = sizeof(char);
+    // List of filename keywords to sort in the same order as the directories they're to go to
+    char * pSortKeywords = malloc(sizeof(char));
+    
     // Getting the keywords to sort by and placing those into the config
     puts("\nPlease enter in the name keywords you would like to sort in the form \"keyword\" followed by a \""SEPERATOR"\" (keyword"SEPERATOR"):");
     getline(&pSortKeywords, &bufSize, stdin);
     fprintf(pConfig, "char* pSortExtensions = \"'%s'\"", pSortKeywords);
+
+    bufSize = sizeof(char);
+    // The list of directories into which the specified keywords will go
+    char * pKeywordsSortDirs = malloc(sizeof(char));
 
     // Getting the directories to into which to sort the aformentioned filetypes and placing that into the config
     puts("\nPlease enter the directories you would like matches to be sorted to in the same order you entered their keywords and in the form \"/directory/\" (Please use the full path) followed by a \""SEPERATOR"\". (/directory/"SEPERATOR"):");
@@ -149,5 +171,5 @@ int main () {
   // Now that we have the treasure, begin sorting the directories
   puts("\nBeginning the sorting process and definitly not stealing your data :3...");
 
-  return 1;  
+  return 0;  
 }
