@@ -73,7 +73,6 @@ char * readEntries(char * sortDir, char * skip) {
 * @param type: The type of input that is meant to be coming in (0 for directory, 1 for keywords, and 2 for file extensions)
 * @return 0 if the input is valid, 1 if not
 */
-// TODO: Test this
 int checkStrInput(char * input, int type) {
   
   char * tok = strtok(input, SEPERATOR);
@@ -108,7 +107,6 @@ int checkStrInput(char * input, int type) {
 * @param input: The input from the user
 * @return Zero if input is valid, 1 if not
 */
-// FIXME: This may not work
 int checkCharInput(char input) {
   switch (input) {
     case 'y':
@@ -142,7 +140,7 @@ int makeConf() {
 
   bufSize = sizeof(char);
   // The list of filetype extensions to sort in the same order as the directories they're to be sorted into
-  char * pSortExtensions = malloc(sizeof(bufSize));
+  char * pSortExtensions = malloc(sizeof(char));
   
   // Getting filetype extensions to sort by and placing them into the config
   puts("\nPlease enter in the filetype extensions you would like to sort in the form \".extension\" followed by a \""SEPERATOR"\" (.extension"SEPERATOR"):");
@@ -220,8 +218,8 @@ int main () {
   
   struct stat * buffer;
   size_t bufSize = sizeof(char);
-    
-  puts("\nWelcome to fileSortBetter!\nStart by entering either the full path to the directory to be sorted or a \".\" if the directory to be sorted is the current:");
+  
+  puts("\nWelcome to fileSortBetter!\nStart by entering either the full path to the directory to be sorted or Enter if the directory to be sorted is the current:");
   getline(&pSortDir, &bufSize, stdin);
 
   lRetrySortSubDirsRes:
@@ -234,6 +232,8 @@ int main () {
     goto lRetrySortSubDirsRes;
   }
 
+  fgetc(stdin);
+  
   lRetrySkipEntry:
 
   bufSize = sizeof(char);
@@ -264,12 +264,38 @@ int main () {
     puts("\nInput invalid!\nPlease try again:");
     goto lRetryUseConfigRes; 
   }
+
+  if (useConfigRes == 'y' || useConfigRes == 'Y')
+    goto lSkipDeclineCheck;
   
   // If the user declined to use the current config or if the config doesn't exist
-  if (useConfigRes == 'n' || (stat("config", buffer) == -1))
-    if (makeConf() == 1)
-      return 1;
+  if (useConfigRes == 'n' || useConfigRes == 'N')
+    goto lMakeConf;
+
+  lSkipDeclineCheck:
+
+  buffer = malloc(sizeof(char) * 1);
   
+  if (stat("config", buffer) == -1) {
+    puts("\nConfig does not exist.");
+    goto lMakeConf;
+  }    
+  
+  if (buffer->st_size <= 1) {
+    puts("\nConfig exists but is empty.");
+    goto lMakeConf;   
+  }
+
+  goto lPassedChecks;
+  
+  lMakeConf:
+  if (makeConf() == 1) {
+    puts("\nFailed making the config, we're boned.\nBye Bye :3");
+    return 1;
+  }
+
+  lPassedChecks:
+      
   // Printing config if read option selected
   if (useConfigRes == 'r') {
     FILE * file = fopen("config", "r");
