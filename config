@@ -1,0 +1,6 @@
+
+const char* pSortExtensions = "'.ex
+'"
+const char* pExtensionSortDirs = "'/d/'"
+const char* pSortExtensions = "'keyword'"
+const char* pExtensionSortDirs = "'/directory/'"

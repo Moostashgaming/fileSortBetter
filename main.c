@@ -2,21 +2,37 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__WINDOWS__)
+
+#include <direct.h>
+#define getcwd _getcwd
+
+#elif defined(__linux__)
+
 #include <sys/stat.h>
 #include <unistd.h>
+
+#endif
+
+// Fuck MacOS support
 
 // TODO: Files and directories with "$" in their names will break the program
 // FIXME: Probably littered with allocation errors, I suck at C
 // Fix is literally to change SEPARATOR to something that can't be in directory or file name, I'm just too lazy to implement it
 
+// Goto comments are subject to drift, expect an error of around 7 lines
+
 #define SEPERATOR "$"
 #define DEPTH_LIMIT 3
+
+
 
 /**
 * Reads through directory entries and passes the first one not skipped or entered (A directory) to moveSort to be sorted
 * @param sortDir: The directory to sort
 * @param skip: The directories or files to skip
-* @return The current entry to be sorted, NULL if no more entries, or an error message
+* @return A list of a or an error message
 */
 char * readEntries(char * sortDir, char * skip) {
   DIR * pCurDir;
@@ -25,45 +41,75 @@ char * readEntries(char * sortDir, char * skip) {
 
   // Check if the directory actually opened and output a message if it didn't
   if ((pCurDir = opendir(sortDir)) == NULL)
-    return "Failed to open the search directory.";
+    return "!: Failed to open the search directory.";
 
   chdir(sortDir);
   char * prevDir = sortDir;
   char * tok;
   unsigned short depth = 0;
 
+  char * pSkipCp = skip;
+  char * pDirEntries;
+
   tok = strtok(skip, SEPERATOR);
   
-  // Loop through each token in skip and compare them to the dirEntry, if they match, then skip returning that dirEntry
   while (1) {   
-    // If no more entries return that
+    // If no more entries return our entries
     if ((dirEntry = readdir(pCurDir)) == NULL)
-      return NULL;    
+      return pDirEntries;    
 
-    tok = strtok(NULL, SEPERATOR);
+    // Loop through each token in skip and compare them to the dirEntry, if they match, then skip returning that dirEntry
+    while (1) {
+      // Continue if this entry matches anything in skip
+      if (strcmp(tok, dirEntry->d_name) == 0) {
+        skip = pSkipCp;
+        tok = strtok(skip, SEPERATOR);
+        // Goes to line 99 and continues the outer loop
+        goto lContinueOuter;
+      }
 
-    // Continue if this entry matches anything in skip
-    if (strcmp(tok, dirEntry->d_name) == 0)
-      continue;
+      tok = strtok(NULL, SEPERATOR);
+      
+      if (tok == NULL)
+        break;
+    }  
+   
     // Stat entry to see if it's a directory
     lstat(dirEntry->d_name, &statBuf);
-  
+
+    // If the entry is a directory and the depth limit is exceeded, return that entry
     if (S_ISDIR(statBuf.st_mode)) {
-      if (depth <= DEPTH_LIMIT) 
-        goto lEnd;
+      if (depth >= DEPTH_LIMIT)
+        // Goes to line 96 
+        goto lAddEntry;
+      
       closedir(pCurDir);
+      
       if ((pCurDir = opendir(dirEntry->d_name)) == NULL) {
         closedir(pCurDir);
-        return "Failed to open nested directory";
+        puts("!: Failed to open nested directory");
+        continue;
       }
+      
       depth++;
       chdir(strcat(prevDir, dirEntry->d_name));
+       
       prevDir = dirEntry->d_name;
       continue;
     }
-    lEnd:
-    closedir(pCurDir);
-    return dirEntry->d_name;
+    
+    lAddEntry:
+    if (pDirEntries == NULL)
+      strcat(pDirEntries, dirEntry->d_name);
+    else {
+      strcat(pDirEntries, SEPERATOR);
+      strcat(pDirEntries, dirEntry->d_name);
+    }
+
+    continue;
+    
+    lContinueOuter:
+    continue;
   }
 }
 
@@ -98,7 +144,7 @@ int checkStrInput(char * input, int type) {
     }
   tok = strtok(NULL, SEPERATOR);
   }
-  puts("\nYou used your own function wrong idiot :3");
+  puts("!: You used your own function wrong idiot :3");
   return 1;
 }
 
@@ -126,28 +172,33 @@ int checkCharInput(char input) {
 * @return Zero if success, 1 if failure
 */
 int makeConf() {
-  puts("\nCreating new config...");
+  puts(":: Creating new config...");
   FILE * pConfig;
-  size_t bufSize = sizeof(char);
+  size_t sizeBuf = sizeof(char);
     
   // Exit program if open config fails somehow
   if ((pConfig = fopen("config", "w")) == NULL) {
-    puts("\n\aWe're cooked, failed to open config.\nGet your shit together and then come back to me!\nExiting...");
+    puts("!! \aWe're cooked, failed to open config.\n!! Get your shit together and then come back to me!\n:: Exiting...");
+    
     return 1;
   }
 
-  lRetrySortExtensions:
-
-  bufSize = sizeof(char);
   // The list of filetype extensions to sort in the same order as the directories they're to be sorted into
   char * pSortExtensions = malloc(sizeof(char));
+
+  lRetrySortExtensions:
+
+  // Collect random newlines
+  fgetc(stdin);
   
   // Getting filetype extensions to sort by and placing them into the config
   puts("\nPlease enter in the filetype extensions you would like to sort in the form \".extension\" followed by a \""SEPERATOR"\" (.extension"SEPERATOR"):");
-  getline(&pSortExtensions, &bufSize, stdin);
+  getline(&pSortExtensions, &sizeBuf, stdin);
 
-  if(checkStrInput(pSortExtensions, 2) == 1) {
-    puts("\nInput invalid!\nPlease try again:");
+  if (checkStrInput(pSortExtensions, 2) == 1) {
+    puts("!: Input invalid!\n!: Please try again:");
+
+    // Goes to line 178
     goto lRetrySortExtensions;
   }
   
@@ -155,16 +206,17 @@ int makeConf() {
 
   lRetryExtensionSortDirs:
 
-  bufSize = sizeof(char);
+  sizeBuf = sizeof(char);
   // The list of directories into which the specified filetypes will go
   char * pExtensionSortDirs = malloc(sizeof(char));
     
   // Getting the directories into which to sort the aformentioned filetypes and placing them into the config
   puts("\nPlease enter the directories you would like these file types to be sorted to in the same order you entered the extensions and in the form \"/directory/\" (Please use the full path) followed by a \""SEPERATOR"\". (/directory/"SEPERATOR"):");
-  getline(&pExtensionSortDirs, &bufSize, stdin);
+  getline(&pExtensionSortDirs, &sizeBuf, stdin);
 
   if(checkStrInput(pExtensionSortDirs, 0) == 1) {
-    puts("\nInput invalid!\nPlease try again:");
+    puts("!: Input invalid!\n!: Please try again:");
+    // Goes to line 196
     goto lRetryExtensionSortDirs;
   }
   
@@ -172,16 +224,17 @@ int makeConf() {
 
   lRetrySortKeywords:
 
-  bufSize = sizeof(char);
+  sizeBuf = sizeof(char);
   // List of filename keywords to sort in the same order as the directories they're to go to
   char * pSortKeywords = malloc(sizeof(char));
     
   // Getting the keywords to sort by and placing those into the config
   puts("\nPlease enter in the name keywords you would like to sort in the form \"keyword\" followed by a \""SEPERATOR"\" (keyword"SEPERATOR"):");
-  getline(&pSortKeywords, &bufSize, stdin);
+  getline(&pSortKeywords, &sizeBuf, stdin);
 
   if(checkStrInput(pSortKeywords, 1) == 1) {
-    puts("\nInput invalid!\nPlease try again:");
+    puts("!: Input invalid!\n!: Please try again:");
+    // Goes to line 214
     goto lRetrySortKeywords;
   }
   
@@ -189,23 +242,32 @@ int makeConf() {
 
   lRetryKeywordsSortDirs:
 
-  bufSize = sizeof(char);
+  sizeBuf = sizeof(char);
   // The list of directories into which the specified keywords will go
   char * pKeywordsSortDirs = malloc(sizeof(char));
 
   // Getting the directories to into which to sort the aformentioned filetypes and placing that into the config
   puts("\nPlease enter the directories you would like matches to be sorted to in the same order you entered their keywords and in the form \"/directory/\" (Please use the full path) followed by a \""SEPERATOR"\". (/directory/"SEPERATOR"):");
-  getline(&pKeywordsSortDirs, &bufSize, stdin);
+  getline(&pKeywordsSortDirs, &sizeBuf, stdin);
 
   
   if(checkStrInput(pKeywordsSortDirs, 0) == 1) {
-    puts("\nInput invalid!\nPlease try again:");
+    puts("!: Input invalid!\n!: Please try again:");
+    // Goes to line 232
     goto lRetryKeywordsSortDirs;
   }
   
   fprintf(pConfig, "\nconst char* pExtensionSortDirs = \"'%s'\"", pKeywordsSortDirs);
 
   return 0;
+}
+
+/**
+* Takes in the path to a file/directory to be sorted, sorts it, and then moves the entry to the correct location
+*/
+
+int moveSort(char * sortEntry) {
+  
 }
 
 int main () {
@@ -216,7 +278,6 @@ int main () {
   // Whether or not to use the config
   char useConfigRes;
   
-  struct stat * buffer;
   size_t bufSize = sizeof(char);
   
   puts("\nWelcome to fileSortBetter!\nStart by entering either the full path to the directory to be sorted or Enter if the directory to be sorted is the current:");
@@ -228,7 +289,8 @@ int main () {
   puts("\nSort through subdirectories? (Depth Limit 3) [y/n]");
   sortSubDirsRes = fgetc(stdin);
   if (checkCharInput(sortSubDirsRes) == 1) {    
-    puts("\nInput invalid!\nPlease try again:");
+    puts("!: Input invalid!\n!: Please try again:");
+    // Goes to line 275
     goto lRetrySortSubDirsRes;
   }
 
@@ -248,7 +310,8 @@ int main () {
 
   while (tok != NULL) {
     if (tok[0] == '.') {
-      puts("\nInput invalid!\nPlease try again:");
+      puts("!: Input invalid!\n!: Please try again:");
+      // Goes to line 288
       goto lRetrySkipEntry;
     }
     tok = strtok(NULL, SEPERATOR);
@@ -259,43 +322,48 @@ int main () {
   // Whether to use the current config
   puts("\nUse current config? (fileSortBetter/config) [Y/n/(r)ead]");
   useConfigRes = fgetc(stdin);
-
-  if (checkCharInput(useConfigRes) == 1 && useConfigRes != 'r') {
-    puts("\nInput invalid!\nPlease try again:");
+  
+  if (checkCharInput(useConfigRes) == 1 && !(useConfigRes == 'r' || useConfigRes == 'R')) {
+    puts("!: Input invalid!\n!: Please try again:");
+    // Goes to line 309
     goto lRetryUseConfigRes; 
   }
 
+  struct stat buffer;
+    
   if (useConfigRes == 'y' || useConfigRes == 'Y')
+    // Goes to line 331
     goto lSkipDeclineCheck;
   
   // If the user declined to use the current config or if the config doesn't exist
   if (useConfigRes == 'n' || useConfigRes == 'N')
+    // Goes to line 346
     goto lMakeConf;
 
   lSkipDeclineCheck:
 
-  buffer = malloc(sizeof(char) * 1);
-  
-  if (stat("config", buffer) == -1) {
-    puts("\nConfig does not exist.");
+  if (stat("config", &buffer) == -1) {
+    puts("!: Config does not exist.");
     goto lMakeConf;
   }    
   
-  if (buffer->st_size <= 1) {
-    puts("\nConfig exists but is empty.");
+  if (buffer.st_size <= 1) {
+    puts("!: Config exists but is empty.");
+    // Goes to line 346
     goto lMakeConf;   
   }
 
+  // Goes to line 354
   goto lPassedChecks;
   
   lMakeConf:
   if (makeConf() == 1) {
-    puts("\nFailed making the config, we're boned.\nBye Bye :3");
+    puts("!! Failed making the config, we're boned.\n!! Bye Bye :3");
     return 1;
   }
 
   lPassedChecks:
-      
+    
   // Printing config if read option selected
   if (useConfigRes == 'r') {
     FILE * file = fopen("config", "r");
@@ -308,7 +376,17 @@ int main () {
   }
 
   // Now that we have the treasure, begin sorting the directories
-  puts("\nBeginning the sorting process and definitly not stealing your data :3...");
+  puts("\n:: Beginning the sorting process and definitly not stealing your data :3...");
 
+  char * pCwd;
+
+  // FIXME: This is a test, it will not be final
+  if (strcmp(pSortDir, "\n") == 0) {
+    getcwd(pCwd, 0);
+    puts(readEntries(pCwd, pSkip));
+  } else {
+    puts(readEntries(pSortDir, pSkip));
+  }
+  
   return 0;  
 }
