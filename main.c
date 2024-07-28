@@ -26,19 +26,20 @@
 #define SEPERATOR "$"
 #define DEPTH_LIMIT 3
 
-
+size_t sortDirMemSize;
+size_t skipMemSize;
 
 /**
-* Reads through directory entries and passes the first one not skipped or entered (A directory) to moveSort to be sorted
+* Reads through directory entries and passes the first one not skipped or entered (A directory) to moveSort to be sorted output must be freed by user
 * @param sortDir: The directory to sort
 * @param skip: The directories or files to skip
-* @return A list of a or an error message
+* @return A list of entries to be sorted (Should be freed by user) or an error message
 */
 char * readEntries(char * sortDir, char * skip) {
   DIR * pCurDir;
   struct dirent * dirEntry;
   struct stat statBuf;
-
+    
   // Check if the directory actually opened and output a message if it didn't
   if ((pCurDir = opendir(sortDir)) == NULL)
     return "!: Failed to open the search directory.";
@@ -50,14 +51,31 @@ char * readEntries(char * sortDir, char * skip) {
 
   char * pSkipCp = skip;
   char * pDirEntries;
+  char * buf;
+  char * catBuf;
 
+  size_t dirEntriesSize;
+  
   tok = strtok(skip, SEPERATOR);
   
   while (1) {   
     // If no more entries return our entries
-    if ((dirEntry = readdir(pCurDir)) == NULL)
-      return pDirEntries;    
-
+    if ((dirEntry = readdir(pCurDir)) == NULL) {
+      // Allocate buffer for strcat
+      // FIXME: May cause memory leak?
+      // TODO: I think this has to be freed at some point
+      catBuf = malloc(strlen(getcwd(buf, 0)) + sizeof(char) + dirEntriesSize);
+      
+      catBuf = getcwd(buf, 0);
+      free(buf);
+      catBuf = strcat(strcat(catBuf, SEPERATOR), pDirEntries);
+      free(pDirEntries);
+      // TODO: Remove debugging puts
+      puts(catBuf);
+      
+      return catBuf;    
+    }
+    
     // Loop through each token in skip and compare them to the dirEntry, if they match, then skip returning that dirEntry
     while (1) {
       // Continue if this entry matches anything in skip
@@ -90,18 +108,36 @@ char * readEntries(char * sortDir, char * skip) {
         puts("!: Failed to open nested directory");
         continue;
       }
+
       
       depth++;
-      chdir(strcat(prevDir, dirEntry->d_name));
-       
+
+      // Add together the previous dir and the dirEntry to cd into new dir
+      prevDir[sortDirMemSize - 2] = 0;
+
+      // FIXME: May cause buffer overflow (Not sure if I need to allocate space for the null terminator)
+      catBuf = malloc(sizeof(char) + dirEntry->d_reclen);
+      catBuf = "/\0";
+      
+      chdir(strcat(catBuf, dirEntry->d_name));
+      
+      // TODO: Remove debugging puts
+      printf("D: Directory we just changed into: %s", strcat(catBuf, dirEntry->d_name));
+
+      free(catBuf);
+      
       prevDir = dirEntry->d_name;
       continue;
     }
     
     lAddEntry:
-    if (pDirEntries == NULL)
-      strcat(pDirEntries, dirEntry->d_name);
-    else {
+    // FIXME: I have no idea if this actually works, help
+    if (pDirEntries == NULL) {
+      pDirEntries = malloc(strlen(dirEntry->d_name));
+      pDirEntries = dirEntry->d_name;
+    }  else {
+      pDirEntries = realloc(pDirEntries, (2 * strlen(dirEntry->d_name)) + sizeof(char));
+      
       strcat(pDirEntries, SEPERATOR);
       strcat(pDirEntries, dirEntry->d_name);
     }
@@ -113,7 +149,7 @@ char * readEntries(char * sortDir, char * skip) {
   }
 }
 
-/** 
+/**
 * Checks if string input from the user is valid and useable
 * @param input: The input from the user
 * @param type: The type of input that is meant to be coming in (0 for directory, 1 for keywords, and 2 for file extensions)
@@ -249,7 +285,7 @@ int makeConf() {
   // Getting the directories to into which to sort the aformentioned filetypes and placing that into the config
   puts("\nPlease enter the directories you would like matches to be sorted to in the same order you entered their keywords and in the form \"/directory/\" (Please use the full path) followed by a \""SEPERATOR"\". (/directory/"SEPERATOR"):");
   getline(&pKeywordsSortDirs, &sizeBuf, stdin);
-
+  
   
   if(checkStrInput(pKeywordsSortDirs, 0) == 1) {
     puts("!: Input invalid!\n!: Please try again:");
@@ -266,7 +302,7 @@ int makeConf() {
 * Takes in the path to a file/directory to be sorted, sorts it, and then moves the entry to the correct location
 */
 
-int moveSort(char * sortEntry) {
+int moveSort(char * sortEntries) {
   
 }
 
@@ -279,10 +315,19 @@ int main () {
   char useConfigRes;
   
   size_t bufSize = sizeof(char);
+  char * buf;
   
   puts("\nWelcome to fileSortBetter!\nStart by entering either the full path to the directory to be sorted or Enter if the directory to be sorted is the current:");
   getline(&pSortDir, &bufSize, stdin);
 
+  sortDirMemSize = bufSize;
+
+  if (strcmp(pSortDir, "\n") == 0) {
+    pSortDir = realloc(pSortDir, strlen(getcwd(buf, 0)));
+    pSortDir = getcwd(buf, 0);
+    puts(getcwd(buf, 0));
+  }
+  
   lRetrySortSubDirsRes:
   
   // Whether or not to sort through subdirs
@@ -316,6 +361,8 @@ int main () {
     }
     tok = strtok(NULL, SEPERATOR);
   }   
+
+  skipMemSize = bufSize;
 
   lRetryUseConfigRes:
   
