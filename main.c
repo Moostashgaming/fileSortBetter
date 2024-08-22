@@ -2,20 +2,10 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
-
-#if defined(_WIN32) || defined(_WIN64) || defined(__WINDOWS__)
-
-#include <direct.h>
-#define getcwd _getcwd
-
-#elif defined(__linux__)
-
 #include <sys/stat.h>
 #include <unistd.h>
 
-#endif
-
-// Fuck MacOS support
+// Fuck MacOS and Windows support
 
 // TODO: Files and directories with "$" in their names will break the program
 // FIXME: Probably littered with allocation errors, I suck at C
@@ -26,8 +16,7 @@
 #define SEPERATOR "$"
 #define DEPTH_LIMIT 3
 
-size_t sortDirMemSize;
-size_t skipMemSize;
+size_t skipMemSize, sortDirMemSize;
 
 /**
 * Reads through directory entries and passes the first one not skipped or entered (A directory) to moveSort to be sorted output must be freed by user
@@ -116,10 +105,10 @@ char * readEntries(char * sortDir, char * skip) {
       prevDir[sortDirMemSize - 2] = 0;
 
       // FIXME: May cause buffer overflow (Not sure if I need to allocate space for the null terminator)
-      catBuf = malloc(sizeof(char) + dirEntry->d_reclen);
-      catBuf = "/\0";
+      catBuf = "/";
+      catBuf = malloc(dirEntry->d_reclen);
       
-      chdir(strcat(catBuf, dirEntry->d_name));
+      chdir(catBuf = strcat(catBuf, dirEntry->d_name));
       
       // TODO: Remove debugging puts
       printf("D: Directory we just changed into: %s", strcat(catBuf, dirEntry->d_name));
@@ -141,8 +130,6 @@ char * readEntries(char * sortDir, char * skip) {
       strcat(pDirEntries, SEPERATOR);
       strcat(pDirEntries, dirEntry->d_name);
     }
-
-    continue;
     
     lContinueOuter:
     continue;
@@ -315,20 +302,33 @@ int main () {
   char useConfigRes;
   
   size_t bufSize = sizeof(char);
-  char * buf;
   
   puts("\nWelcome to fileSortBetter!\nStart by entering either the full path to the directory to be sorted or Enter if the directory to be sorted is the current:");
   getline(&pSortDir, &bufSize, stdin);
-
+  
   sortDirMemSize = bufSize;
 
   if (strcmp(pSortDir, "\n") == 0) {
-    pSortDir = realloc(pSortDir, strlen(getcwd(buf, 0)));
-    pSortDir = getcwd(buf, 0);
-    puts(getcwd(buf, 0));
+    free(pSortDir);
+    
+    for (unsigned short i = 0; (pSortDir = getcwd(pSortDir, sizeof(char) * (i + 1))) == NULL; ++i) {
+        pSortDir = realloc(pSortDir, sizeof(char) * i);
+      }        
+
+    if (pSortDir == NULL)
+      puts("!! Fuck this shit!\nSegfaulting...");
+
+    sortDirMemSize = strlen(pSortDir) * sizeof(char);
+
+    // TODO: Remove debug puts
+    puts(pSortDir);
+    
+    sortDirMemSize = bufSize;
   }
   
   lRetrySortSubDirsRes:
+
+  // FIXME: Putting multiple invalid characters into single character response outputs multiple invaild input messages
   
   // Whether or not to sort through subdirs
   puts("\nSort through subdirectories? (Depth Limit 3) [y/n]");
